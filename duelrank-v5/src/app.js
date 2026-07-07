@@ -29,6 +29,8 @@ function scheduleSave() {
   saveTimer = setTimeout(async () => {
     const ok = await saveLocal(persistableState(state));
     $('#saveStatus').textContent = ok ? `sauvegarde locale · ${state.duels || 0} duels` : 'sauvegarde locale indisponible';
+    $('#resume').classList.toggle('hidden', !ok);
+    $('#forget').classList.toggle('hidden', !ok);
   }, 120);
 }
 
@@ -65,6 +67,28 @@ function renderImportInfo() {
   renderMapping();
   renderPreview();
   renderValidation(validation.issues);
+}
+
+function importItemsFromState(sourceState) {
+  imported = (sourceState.items || []).map(({ id, nom, description, lien, image }) => ({
+    id,
+    nom,
+    description: description || '',
+    lien: lien || '',
+    image: image || '',
+    wins: 0,
+    losses: 0,
+    ties: 0,
+    checks: 0,
+    rating: 0,
+    rd: 1.8,
+    duels: 0,
+    exposure: 0,
+    auto: {},
+  })).filter((obj) => obj.nom);
+  parsed = null;
+  loadedCatalogId = null;
+  renderImportInfo();
 }
 
 function renderMapping() {
@@ -240,9 +264,54 @@ function renderLive(focus = []) {
   $('#liveRanking').className = 'mini-list';
   $('#liveRanking').innerHTML = order.map((id, index) => {
     const obj = item(state, id);
-    if (mode === 'debug') return `<div class="mini-row ${focused.has(id) ? 'focus' : ''}"><span>#${index + 1}</span><b>${esc(obj.nom)}</b><span class="tag">${obj.rating.toFixed(2)} · rd ${obj.rd.toFixed(2)}</span></div>`;
-    return `<div class="mini-row ${focused.has(id) ? 'focus' : ''}"><span>#${index + 1}</span><b>${esc(obj.nom)}</b><span class="tag ${obj.tierLocked ? 'locked' : ''}">${esc(obj.tierProposal || '?')} · ${confidenceFor(obj)}%</span></div>`;
+    const tools = `<span class="mini-tools"><button data-move="up" data-id="${id}" title="Monter">↑</button><button data-move="down" data-id="${id}" title="Descendre">↓</button></span>`;
+    if (mode === 'debug') return `<div class="mini-row ${focused.has(id) ? 'focus' : ''}" draggable="true" data-rank-id="${id}"><span>#${index + 1}</span><b>${esc(obj.nom)}</b><span class="tag">${obj.rating.toFixed(2)} · rd ${obj.rd.toFixed(2)}</span></div>`;
+    return `<div class="mini-row ${focused.has(id) ? 'focus' : ''}" draggable="true" data-rank-id="${id}"><span>#${index + 1}</span><b>${esc(obj.nom)}</b>${tools}</div>`;
   }).join('');
+}
+
+function applyManualOrder(order) {
+  const n = order.length;
+  order.forEach((id, index) => {
+    const obj = item(state, id);
+    obj.rating = (n - index) * 0.035;
+    obj.rd = Math.max(0.35, obj.rd ?? 1.2);
+  });
+  state.ranking = order.slice();
+  state.result = state.phase === 'done' ? order.slice() : null;
+  state.manualRanking = true;
+  state.decisions.unshift({ at: state.duels, text: 'Classement modifie manuellement', outcome: 'manual' });
+  state.decisions = state.decisions.slice(0, 80);
+  applyTierProposals(state);
+  state.currentPair = null;
+  scheduleSave();
+}
+
+function moveRankItem(sourceId, targetId) {
+  sourceId = Number(sourceId);
+  targetId = Number(targetId);
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  const order = currentOrder(state);
+  const from = order.indexOf(sourceId);
+  const to = order.indexOf(targetId);
+  if (from < 0 || to < 0) return;
+  const [moved] = order.splice(from, 1);
+  order.splice(to, 0, moved);
+  applyManualOrder(order);
+  if (state.phase === 'done') renderResult();
+  else renderDuel();
+}
+
+function nudgeRankItem(id, direction) {
+  id = Number(id);
+  const order = currentOrder(state);
+  const from = order.indexOf(id);
+  const to = direction === 'up' ? from - 1 : from + 1;
+  if (from < 0 || to < 0 || to >= order.length) return;
+  [order[from], order[to]] = [order[to], order[from]];
+  applyManualOrder(order);
+  if (state.phase === 'done') renderResult();
+  else renderDuel();
 }
 
 function tierBoardHtml(order = currentOrder(state), focus = []) {
@@ -295,6 +364,15 @@ function finish() {
 
 function renderResult() {
   const ids = state.result || currentOrder(state);
+  applyTierProposals(state);
+  const stop = stopInfo(state);
+  const done = state.phase === 'done';
+  $('#summary').textContent = done
+    ? `${state.duels} duels pour ${state.items.length} objets. Budget cible ${state.activeBudget}.`
+    : `Classement courant apres ${state.duels} duels sur ${state.items.length} objets. Budget cible ${state.activeBudget}.`;
+  $('#quality').textContent = `${done ? 'Resultat final' : 'Apercu en cours'} · confiance globale ${Math.round(stop.avg)}%, top ${Math.round(stop.topAvg)}%, tiers stables ${Math.round(stop.tierStable * 100)}%.`;
+  $('#resultBudget').value = state.activeBudget;
+  $('#continueRanking').textContent = done ? 'Continuer' : 'Retour aux duels';
   $('#ranking').innerHTML = `<div class="tier-board">${tierBoardHtml(ids)}</div>` + ids.map((id, index) => {
     const obj = item(state, id);
     return `<div class="rank-row"><div class="rank-num">${index + 1}</div><div><b>${esc(obj.nom)}</b><div class="record">${esc(obj.description || '')}</div></div><div class="record">Tier ${esc(obj.tierProposal || '?')} · confiance ${confidenceFor(obj)}% · score ${obj.rating.toFixed(2)}</div></div>`;
@@ -302,6 +380,11 @@ function renderResult() {
 }
 
 function continueRanking() {
+  if (state.phase !== 'done') {
+    activate('duel');
+    renderDuel();
+    return;
+  }
   const wanted = clampInt($('#resultBudget').value, 20, 10000, state.activeBudget + 100);
   state.activeBudget = wanted <= state.duels ? Math.min(10000, state.duels + 100) : wanted;
   state.phase = 'active';
@@ -314,6 +397,7 @@ function continueRanking() {
 function loadSessionText(text) {
   try {
     state = hydrateSession(migrateSession(JSON.parse(text)));
+    importItemsFromState(state);
     if (state.phase === 'done') finish();
     else {
       activate('duel');
@@ -322,6 +406,29 @@ function loadSessionText(text) {
     saveLocal(persistableState(state));
   } catch (error) {
     alert(error.message);
+  }
+}
+
+async function resumeSavedSession() {
+  try {
+    const saved = await loadLocal();
+    if (!saved) {
+      $('#saveStatus').textContent = 'aucune sauvegarde locale trouvee';
+      $('#resume').classList.add('hidden');
+      $('#forget').classList.add('hidden');
+      return;
+    }
+    state = hydrateSession(migrateSession(saved));
+    importItemsFromState(state);
+    state.currentPair = null;
+    if (state.phase === 'done') finish();
+    else {
+      activate('duel');
+      renderDuel();
+    }
+    $('#saveStatus').textContent = `sauvegarde reprise · ${state.duels || 0} duels`;
+  } catch (error) {
+    $('#saveStatus').textContent = `reprise impossible: ${error.message}`;
   }
 }
 
@@ -455,7 +562,11 @@ function wireEvents() {
     refreshCatalog();
   };
   $('#tabDuel').onclick = () => state ? activate('duel') : activate('import');
-  $('#tabResult').onclick = () => state?.phase === 'done' ? activate('result') : activate('import');
+  $('#tabResult').onclick = () => {
+    if (!state) return activate('import');
+    renderResult();
+    activate('result');
+  };
 
   $('#drop').onclick = () => $('#file').click();
   $('#file').onchange = (event) => event.target.files[0] && readFile(event.target.files[0]);
@@ -565,17 +676,7 @@ function wireEvents() {
     await clearLocal();
     resetToImport();
   };
-  $('#resume').onclick = async () => {
-    const saved = await loadLocal();
-    if (saved) {
-      state = hydrateSession(migrateSession(saved));
-      if (state.phase === 'done') finish();
-      else {
-        activate('duel');
-        renderDuel();
-      }
-    }
-  };
+  $('#resume').onclick = resumeSavedSession;
   $('#forget').onclick = async () => {
     await clearLocal();
     $('#resume').classList.add('hidden');
@@ -583,6 +684,34 @@ function wireEvents() {
   };
   $('#zoomMedia').onclick = () => openMediaDialog();
   $('#closeDialog').onclick = () => $('#mediaDialog').close();
+  $('#liveRanking').addEventListener('dragstart', (event) => {
+    const row = event.target.closest('[data-rank-id]');
+    if (!row) return;
+    event.dataTransfer.setData('text/plain', row.dataset.rankId);
+    event.dataTransfer.effectAllowed = 'move';
+  });
+  $('#liveRanking').addEventListener('dragover', (event) => {
+    const row = event.target.closest('[data-rank-id]');
+    if (!row) return;
+    event.preventDefault();
+    row.classList.add('drag-over');
+  });
+  $('#liveRanking').addEventListener('dragleave', (event) => {
+    event.target.closest('[data-rank-id]')?.classList.remove('drag-over');
+  });
+  $('#liveRanking').addEventListener('drop', (event) => {
+    const row = event.target.closest('[data-rank-id]');
+    if (!row) return;
+    event.preventDefault();
+    row.classList.remove('drag-over');
+    moveRankItem(event.dataTransfer.getData('text/plain'), row.dataset.rankId);
+  });
+  $('#liveRanking').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-move]');
+    if (!button) return;
+    event.stopPropagation();
+    nudgeRankItem(button.dataset.id, button.dataset.move);
+  });
   document.addEventListener('keydown', (event) => {
     if ($('#duelView').classList.contains('hidden')) return;
     if (event.key === 'ArrowLeft') chooseAndRender('left');
@@ -605,8 +734,29 @@ function handleCardClick(event, side) {
 }
 
 function chooseAndRender(outcome) {
+  const before = state.duels || 0;
   choosePair(state, outcome);
+  if (Math.floor(before / 50) < Math.floor((state.duels || 0) / 50)) showConfetti();
   renderDuel();
+}
+
+function showConfetti() {
+  const layer = $('#confettiLayer');
+  if (!layer) return;
+  const colors = ['#d7ff5f', '#79d7ff', '#ff7f7f', '#ffc65c', '#b99cff', '#67e39a'];
+  layer.classList.remove('hidden');
+  layer.innerHTML = Array.from({ length: 90 }, (_, index) => {
+    const left = Math.random() * 100;
+    const x = `${Math.random() * 220 - 110}px`;
+    const r = `${Math.random() * 720 - 360}deg`;
+    const delay = Math.random() * 240;
+    const color = colors[index % colors.length];
+    return `<i class="confetti" style="left:${left}%;background:${color};--x:${x};--r:${r};animation-delay:${delay}ms"></i>`;
+  }).join('');
+  setTimeout(() => {
+    layer.classList.add('hidden');
+    layer.innerHTML = '';
+  }, 1800);
 }
 
 function openMediaDialog() {

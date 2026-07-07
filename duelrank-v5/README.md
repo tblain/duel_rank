@@ -36,6 +36,16 @@ Les sessions de ranking restent locales/exportables comme avant. Le catalogue st
 
 La V5 ne fait pas de remplissage automatique : elle sauvegarde et recharge les listes telles qu'elles sont dans le CSV ou telles qu'elles ont ete corrigees manuellement.
 
+## Ameliorations UX
+
+- Interface plus confortable sur smartphone : onglets compacts, actions de duel en grille, classement lateral limite en hauteur.
+- Importer une session recharge aussi la liste CSV dans l'ecran Importer, ce qui permet ensuite de la sauvegarder dans le catalogue.
+- `Reprendre la sauvegarde` restaure aussi la liste CSV associee a la session locale.
+- Tous les 50 duels, une animation de confettis apparait.
+- Le classement lateral peut etre modifie manuellement :
+  - glisser-deposer une ligne sur une autre ;
+  - ou utiliser les boutons `↑` / `↓`, plus pratiques sur mobile.
+
 ## Tests
 
 ```bash
