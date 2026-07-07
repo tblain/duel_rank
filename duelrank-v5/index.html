@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>DuelRank V5</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="brand">Duel<i>Rank V5</i></div>
+    <div id="saveStatus" class="pill">catalogue backend · Supabase · ranking local</div>
+  </header>
+
+  <nav class="tabs main-tabs">
+    <button id="tabImport" class="active">Importer</button>
+    <button id="tabCatalog">Catalogue</button>
+    <button id="tabDuel">Duel</button>
+    <button id="tabResult">Resultat</button>
+  </nav>
+
+  <section id="importView" class="panel">
+    <div class="pill inline">CSV + CATALOGUE CLOUD</div>
+    <h1>Importe une liste. Sauvegarde-la dans ton catalogue.</h1>
+    <p class="lead">La V5 supprime l'autoremplissage et ajoute un catalogue backend pour retrouver tes CSV depuis n'importe quel appareil.</p>
+
+    <div id="drop" class="drop">
+      <strong>Depose ton CSV ici</strong>
+      <span>ou clique pour selectionner un fichier</span>
+      <input id="file" type="file" accept=".csv,text/csv,.json,application/json" hidden>
+    </div>
+    <input id="sessionFile" class="file-input" type="file" accept=".json,application/json">
+    <div class="actions">
+      <button id="importSession" class="btn secondary">Importer une session</button>
+      <button id="resume" class="btn secondary hidden">Reprendre la sauvegarde</button>
+      <button id="forget" class="btn danger hidden">Supprimer la sauvegarde</button>
+    </div>
+
+    <div id="importInfo" class="hidden">
+      <div class="grid two">
+        <section class="box">
+          <h2>Assistant CSV</h2>
+          <p class="muted">Verifie les colonnes detectees avant de lancer ou sauvegarder.</p>
+          <div id="mapping" class="mapping"></div>
+          <div id="preview" class="preview"></div>
+        </section>
+        <section class="box">
+          <h2>Validation</h2>
+          <div id="validation" class="checks"></div>
+        </section>
+      </div>
+
+      <div class="grid three">
+        <section class="box">
+          <h2>Objectif</h2>
+          <label>Mode de ranking
+            <select id="objective">
+              <option value="global">Classement global approximatif</option>
+              <option value="top">Top fiable</option>
+              <option value="tiers">Tiers fiables</option>
+              <option value="complete">Classement complet plus precis</option>
+            </select>
+          </label>
+          <label>Critere d'arret
+            <select id="stopMode">
+              <option value="budget">Budget seulement</option>
+              <option value="tiers">Tiers stables</option>
+              <option value="top">Top stable</option>
+              <option value="confidence">Confiance globale</option>
+            </select>
+          </label>
+        </section>
+        <section class="box">
+          <h2>Budget</h2>
+          <label>Comparaisons max
+            <input id="comparisonBudget" type="number" min="20" max="10000" value="500">
+          </label>
+          <label>Calibration par objet
+            <input id="calibrationTarget" type="number" min="0" max="5" value="1">
+          </label>
+        </section>
+        <section class="box">
+          <h2>Anti-repetition</h2>
+          <label>Apparitions max
+            <input id="repeatMax" type="number" min="1" max="10" value="3">
+          </label>
+          <label>Fenetre de duels
+            <input id="repeatWindow" type="number" min="2" max="50" value="10">
+          </label>
+        </section>
+      </div>
+
+      <div class="box">
+        <h2>Tiers</h2>
+        <textarea id="tierInput" class="tier-area">S
+A
+B
+C
+D</textarea>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><b id="itemCount">0</b><span>objets</span></div>
+        <div class="stat"><b id="budgetEstimate">0</b><span>budget</span></div>
+        <div class="stat"><b id="exactEstimate">0</b><span>tri exact estime</span></div>
+        <div class="stat"><b id="qualityEstimate">-</b><span>objectif</span></div>
+      </div>
+      <div class="actions">
+        <button id="start" class="btn">Commencer</button>
+        <button id="saveCatalog" class="btn secondary">Enregistrer au catalogue</button>
+        <button id="benchmark" class="btn secondary">Benchmark 171</button>
+        <button id="clearImport" class="btn secondary">Changer de fichier</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="catalogView" class="panel hidden">
+    <div class="pill inline">CATALOGUE BACKEND</div>
+    <h1>Catalogue</h1>
+    <p class="lead">Connecte Supabase, identifie-toi, puis sauvegarde et recharge tes CSV depuis le backend.</p>
+
+    <div class="grid two">
+      <section class="box">
+        <h2>Backend</h2>
+        <label>Supabase URL
+          <input id="supabaseUrl" placeholder="https://xxxx.supabase.co">
+        </label>
+        <label>Anon public key
+          <input id="supabaseAnonKey" placeholder="eyJhbGciOi...">
+        </label>
+        <div class="actions">
+          <button id="saveBackendConfig" class="btn secondary">Enregistrer config</button>
+          <button id="clearBackendConfig" class="btn danger">Oublier config</button>
+        </div>
+        <p id="backendStatus" class="notice"></p>
+      </section>
+
+      <section class="box">
+        <h2>Compte</h2>
+        <label>Email
+          <input id="authEmail" type="email" placeholder="toi@example.com">
+        </label>
+        <div class="actions">
+          <button id="signIn" class="btn">Recevoir un lien de connexion</button>
+          <button id="signOut" class="btn secondary">Se deconnecter</button>
+        </div>
+        <p id="authStatus" class="notice"></p>
+      </section>
+    </div>
+
+    <section class="box">
+      <div class="catalog-head">
+        <h2>Listes sauvegardees</h2>
+        <div class="actions no-margin">
+          <input id="catalogSearch" placeholder="Rechercher...">
+          <button id="refreshCatalog" class="btn secondary">Rafraichir</button>
+        </div>
+      </div>
+      <div id="catalogList" class="catalog-list"></div>
+    </section>
+  </section>
+
+  <section id="duelView" class="hidden">
+    <div class="duel-page">
+      <aside class="panel live-rank">
+        <h2>Classement actuel</h2>
+        <div class="tabs">
+          <button id="rankModeList" class="active">Liste</button>
+          <button id="rankModeTiers">Tiers</button>
+          <button id="rankModeDebug">Debug</button>
+        </div>
+        <div id="dashboard" class="dashboard"></div>
+        <div id="liveRanking" class="mini-list"></div>
+      </aside>
+
+      <main>
+        <div class="progress-wrap">
+          <div class="progress"><div id="bar" class="bar"></div></div>
+          <div id="progressLabel" class="progress-label"></div>
+        </div>
+        <div id="pairReason" class="notice"></div>
+        <div class="duel">
+          <article id="leftCard" class="card"></article>
+          <div class="vs">VS</div>
+          <article id="rightCard" class="card"></article>
+        </div>
+        <div class="actions duel-actions">
+          <button id="tie" class="btn secondary">Egalite</button>
+          <button id="compactMode" class="btn secondary">Compact</button>
+          <button id="zoomMedia" class="btn secondary">Zoom media</button>
+          <input id="liveBudget" type="number" min="20" max="10000" step="10">
+          <button id="extend50" class="btn small secondary">+50</button>
+          <button id="extend100" class="btn small secondary">+100</button>
+          <button id="extend250" class="btn small secondary">+250</button>
+          <button id="exportSessionDuel" class="btn small secondary">Exporter session</button>
+          <button id="undo" class="btn small secondary">Annuler</button>
+          <button id="quit" class="btn small secondary">Accueil</button>
+        </div>
+        <section class="box history-box">
+          <h2>Historique</h2>
+          <div id="historyList" class="history"></div>
+        </section>
+      </main>
+    </div>
+  </section>
+
+  <section id="resultView" class="hidden">
+    <div class="rank-layout">
+      <main>
+        <h2>Classement</h2>
+        <div id="ranking" class="ranking"></div>
+      </main>
+      <aside class="panel side">
+        <h2>Resultat</h2>
+        <p id="summary" class="muted"></p>
+        <p id="quality" class="muted"></p>
+        <label>Nouveau budget
+          <input id="resultBudget" type="number" min="20" max="10000" step="10">
+        </label>
+        <div class="actions">
+          <button id="continueRanking" class="btn">Continuer</button>
+          <button id="exportCurrent" class="btn secondary">CSV complet</button>
+          <button id="exportTiers" class="btn secondary">Tier list</button>
+          <button id="exportMarkdown" class="btn secondary">Markdown</button>
+          <button id="exportHtml" class="btn secondary">HTML</button>
+          <button id="saveSessionFile" class="btn secondary">Sauver fichier</button>
+          <button id="exportSessionResult" class="btn secondary">Exporter session</button>
+          <button id="restart" class="btn secondary">Reclasser</button>
+          <button id="newList" class="btn danger">Nouvelle liste</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<dialog id="mediaDialog">
+  <button id="closeDialog" class="btn secondary">Fermer</button>
+  <div id="dialogMedia"></div>
+</dialog>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>DuelRank</title>
+<style>
+:root{--bg:#0b0d10;--panel:#13171c;--panel2:#191e25;--text:#f4f6f8;--muted:#8d98a5;--line:#2a313b;--accent:#e9ff70;--danger:#ff6b6b;--radius:18px}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+button,input{font:inherit}.shell{max-width:1280px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.brand{font-weight:800;font-size:22px;letter-spacing:-.5px}.brand i{color:var(--accent);font-style:normal}.pill{border:1px solid var(--line);padding:7px 11px;border-radius:999px;color:var(--muted);font-size:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}.hidden{display:none!important}
+h1{font-size:clamp(32px,5vw,62px);line-height:1;letter-spacing:-2px;margin:10px 0 16px;max-width:800px}h2{margin:0 0 14px;letter-spacing:-.5px}.lead{color:var(--muted);max-width:690px;font-size:17px}
+.drop{margin-top:28px;border:1.5px dashed #3b4654;border-radius:16px;padding:36px;text-align:center;background:var(--panel2);cursor:pointer}.drop.drag{border-color:var(--accent)}.drop strong{display:block;font-size:18px}.drop span{color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.btn{border:0;border-radius:11px;padding:11px 16px;font-weight:700;cursor:pointer;background:var(--accent);color:#111}.btn.secondary{background:#232a33;color:var(--text);border:1px solid var(--line)}.btn.danger{background:transparent;color:var(--danger);border:1px solid #5a2e34}.btn:disabled{opacity:.4;cursor:not-allowed}
+.schema{margin-top:18px;padding:14px 16px;background:#0d1014;border-radius:12px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;overflow:auto}
+.import-info{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.stat{background:var(--panel2);border:1px solid var(--line);padding:16px;border-radius:14px}.stat b{display:block;font-size:24px}.stat span{color:var(--muted);font-size:12px}
+.progress-wrap{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin-bottom:18px}.progress{height:7px;background:#222831;border-radius:9px;overflow:hidden}.bar{height:100%;background:var(--accent);width:0}.progress-label{font-size:12px;color:var(--muted)}
+.duel{display:grid;grid-template-columns:1fr 72px 1fr;gap:18px;align-items:stretch}.card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;cursor:pointer;min-width:0;transition:.15s transform,.15s border}.card:hover{transform:translateY(-3px);border-color:#65717f}.media{aspect-ratio:16/9;background:#090b0d;display:flex;align-items:center;justify-content:center;overflow:hidden}.media img{width:100%;height:100%;object-fit:cover}.media iframe{width:100%;height:100%;border:0}.placeholder{font-size:52px;color:#39424e;font-weight:900}.content{padding:22px}.content h3{font-size:28px;line-height:1.05;letter-spacing:-1px;margin:0 0 10px}.desc{color:var(--muted);min-height:44px;white-space:pre-wrap}.link{display:inline-block;color:var(--accent);margin-top:12px;text-decoration:none}.choose{margin-top:18px;width:100%}.vs{display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:900;font-size:18px}
+.duel-tools{display:flex;justify-content:space-between;align-items:center;margin-top:18px;color:var(--muted);font-size:12px}
+.rank-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px}.ranking{display:flex;flex-direction:column;gap:8px}.rank-row{display:grid;grid-template-columns:48px 46px 1fr auto;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:9px 12px}.rank-num{font-size:20px;font-weight:800;color:var(--muted)}.thumb{width:46px;height:46px;border-radius:9px;object-fit:cover;background:#0b0d10}.record{font-size:12px;color:var(--muted)}.side{position:sticky;top:20px;height:max-content}.side p{color:var(--muted)}.kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:2px 6px;color:var(--text)}
+.notice{margin-top:14px;color:var(--muted);font-size:13px}
+@media(max-width:800px){.shell{padding:14px}.duel{grid-template-columns:1fr}.vs{height:30px}.import-info{grid-template-columns:1fr}.rank-layout{grid-template-columns:1fr}.side{position:static}.content h3{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="top"><div class="brand">Duel<i>Rank</i></div><div class="pill">100 % local · aucune donnée envoyée</div></div>
+
+  <section id="importView" class="panel">
+    <div class="pill" style="display:inline-block">CLASSEMENT PAR COMPARAISONS</div>
+    <h1>Classe n'importe quoi, deux choix à la fois.</h1>
+    <p class="lead">Importe un CSV. L'algorithme organise les duels pour produire un classement complet avec nettement moins de comparaisons qu'un tournoi « chacun contre chacun ».</p>
+    <div id="drop" class="drop">
+      <strong>Dépose ton CSV ici</strong><span>ou clique pour sélectionner un fichier</span>
+      <input id="file" type="file" accept=".csv,text/csv" hidden>
+    </div>
+    <div class="schema">nom,description,lien,image<br>"Massive Attack","Trip-hop britannique","https://youtu.be/Epgo8ixX6Wo","https://…/cover.jpg"</div>
+    <div id="importInfo" class="hidden">
+      <div class="import-info">
+        <div class="stat"><b id="itemCount">0</b><span>objets détectés</span></div>
+        <div class="stat"><b id="estimate">0</b><span>duels estimés</span></div>
+        <div class="stat"><b id="naive">0</b><span>duels en chacun contre chacun</span></div>
+      </div>
+      <div class="actions"><button id="start" class="btn">Commencer les duels</button><button id="clearImport" class="btn secondary">Changer de fichier</button></div>
+      <div id="csvWarning" class="notice"></div>
+    </div>
+    <div id="resumeBox" class="actions hidden"><button id="resume" class="btn secondary">Reprendre le classement sauvegardé</button><button id="forget" class="btn danger">Supprimer la sauvegarde</button></div>
+  </section>
+
+  <section id="duelView" class="hidden">
+    <div class="progress-wrap"><div class="progress"><div id="bar" class="bar"></div></div><div id="progressLabel" class="progress-label"></div></div>
+    <div class="duel">
+      <article id="leftCard" class="card"></article><div class="vs">VS</div><article id="rightCard" class="card"></article>
+    </div>
+    <div class="duel-tools"><span><span class="kbd">←</span> gauche · <span class="kbd">→</span> droite · <span class="kbd">U</span> annuler</span><div class="actions" style="margin:0"><button id="undo" class="btn secondary">Annuler</button><button id="quit" class="btn secondary">Accueil</button></div></div>
+  </section>
+
+  <section id="resultView" class="hidden">
+    <div class="rank-layout">
+      <div><h2>Classement final</h2><div id="ranking" class="ranking"></div></div>
+      <aside class="panel side"><h2>Terminé.</h2><p id="summary"></p><div class="actions"><button id="export" class="btn">Exporter le CSV</button><button id="restart" class="btn secondary">Reclasser</button><button id="newList" class="btn danger">Nouvelle liste</button></div></aside>
+    </div>
+  </section>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const STORAGE='duelrank-state-v1';
+let state=null, imported=[];
+
+function parseCSV(text){
+  text=text.replace(/^\uFEFF/,'');
+  const rows=[]; let row=[], field='', quote=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i], n=text[i+1];
+    if(quote){if(c==='"'&&n==='"'){field+='"';i++}else if(c==='"')quote=false;else field+=c}
+    else if(c==='"')quote=true;
+    else if(c===','){row.push(field);field=''}
+    else if(c==='\n'){row.push(field);rows.push(row);row=[];field=''}
+    else if(c!=='\r')field+=c;
+  }
+  if(field||row.length){row.push(field);rows.push(row)}
+  if(rows.length<2) throw Error('Le CSV ne contient aucune ligne de données.');
+  const heads=rows[0].map(x=>x.trim().toLowerCase());
+  const aliases={nom:['nom','name','titre','title'],description:['description','desc'],lien:['lien','link','url'],image:['image','img','cover','thumbnail']};
+  const idx={}; for(const [k,vals] of Object.entries(aliases)) idx[k]=heads.findIndex(h=>vals.includes(h));
+  if(idx.nom<0) throw Error('Colonne "nom" introuvable.');
+  return rows.slice(1).filter(r=>r.some(x=>x.trim())).map((r,i)=>({
+    id:i+1, nom:(r[idx.nom]||'').trim(), description:idx.description>=0?(r[idx.description]||'').trim():'',
+    lien:idx.lien>=0?(r[idx.lien]||'').trim():'', image:idx.image>=0?(r[idx.image]||'').trim():'',
+    wins:0, losses:0
+  })).filter(x=>x.nom);
+}
+function worstComparisons(n){if(n<2)return 0; const k=Math.ceil(Math.log2(n));return n*k-2**k+1}
+function expectedComparisons(n){
+  function rec(x){if(x<2)return 0;let a=Math.floor(x/2),b=x-a;return rec(a)+rec(b)+a+b-a/(b+1)-b/(a+1)}
+  return Math.round(rec(n));
+}
+function makeJobs(items){
+  let runs=items.map(x=>[x]); const jobs=[];
+  while(runs.length>1){const next=[];for(let i=0;i<runs.length;i+=2){if(i+1<runs.length){jobs.push({a:runs[i],b:runs[i+1],out:[],ia:0,ib:0,result:null});next.push({job:jobs.length-1})}else next.push(runs[i])}runs=next.map(r=>Array.isArray(r)?r:[])}
+  // The dependency graph is easier built recursively.
+  jobs.length=0;
+  function build(arr){if(arr.length<=1)return {items:arr};const m=Math.floor(arr.length/2);const left=build(arr.slice(0,m)),right=build(arr.slice(m));const j={left,right,a:null,b:null,out:[],ia:0,ib:0,result:null};jobs.push(j);return {job:j}}
+  const root=build(items); return {jobs,root};
+}
+function resolveNode(node){if(node.items)return node.items;if(node.job.result)return node.job.result;return null}
+function nextJob(){
+  for(const j of state.jobs){if(j.result)continue;const a=resolveNode(j.left),b=resolveNode(j.right);if(a&&b){if(!j.a){j.a=a;j.b=b}return j}}
+  return null;
+}
+function currentPair(){
+  const j=nextJob(); if(!j)return null;
+  if(j.ia>=j.a.length){j.result=j.out.concat(j.b.slice(j.ib));return currentPair()}
+  if(j.ib>=j.b.length){j.result=j.out.concat(j.a.slice(j.ia));return currentPair()}
+  return {j,left:j.a[j.ia],right:j.b[j.ib]};
+}
+function save(){localStorage.setItem(STORAGE,JSON.stringify(state))}
+function hydrate(raw){
+  // JSON preserves shared item values by copy. Reconnect all item references to canonical objects by id.
+  const canon=new Map(raw.items.map(x=>[x.id,x]));
+  function fixNode(n){if(n.items)n.items=n.items.map(x=>canon.get(x.id));if(n.job)fixJob(n.job)}
+  const seen=new Set(); function fixJob(j){if(seen.has(j))return;seen.add(j);fixNode(j.left);fixNode(j.right);if(j.a)j.a=j.a.map(x=>canon.get(x.id));if(j.b)j.b=j.b.map(x=>canon.get(x.id));j.out=j.out.map(x=>canon.get(x.id));if(j.result)j.result=j.result.map(x=>canon.get(x.id))}
+  raw.jobs.forEach(fixJob); fixNode(raw.root); return raw;
+}
+function youtubeId(url){
+  try{const u=new URL(url);if(u.hostname.includes('youtu.be'))return u.pathname.split('/')[1];if(u.hostname.includes('youtube.com')){if(u.pathname.startsWith('/shorts/'))return u.pathname.split('/')[2];if(u.pathname.startsWith('/embed/'))return u.pathname.split('/')[2];return u.searchParams.get('v')}}catch(e){} return null;
+}
+function safeUrl(url){try{const u=new URL(url);return ['http:','https:'].includes(u.protocol)?u.href:''}catch(e){return ''}}
+function mediaHTML(x){
+  const y=youtubeId(x.lien);
+  if(y)return `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(y)}?rel=0" title="${esc(x.nom)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+  const img=safeUrl(x.image); return img?`<img src="${esc(img)}" alt="">`:`<div class="placeholder">${esc(x.nom.slice(0,1).toUpperCase())}</div>`;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function cardHTML(x,side){const link=safeUrl(x.lien), y=youtubeId(x.lien);return `<div class="media">${mediaHTML(x)}</div><div class="content"><h3>${esc(x.nom)}</h3><div class="desc">${esc(x.description||'Aucune description')}</div>${link&&!y?`<a class="link" href="${esc(link)}" target="_blank" rel="noopener">Ouvrir le lien ↗</a>`:''}<button class="btn choose">${side==='left'?'← Choisir':'Choisir →'}</button></div>`}
+function renderDuel(){
+  const p=currentPair(); if(!p){finish();return}
+  $('#leftCard').innerHTML=cardHTML(p.left,'left'); $('#rightCard').innerHTML=cardHTML(p.right,'right');
+  const max=state.maxEstimate, done=state.history.length, pct=Math.min(99,Math.round(done/max*100));
+  $('#bar').style.width=pct+'%'; $('#progressLabel').textContent=`${done} duels · environ ${Math.max(0,state.estimate-done)} restants`;
+  $('#undo').disabled=!state.history.length; save();
+}
+function choose(side){
+  const p=currentPair(); if(!p)return;
+  const winner=side==='left'?p.left:p.right, loser=side==='left'?p.right:p.left;
+  state.history.push(JSON.stringify(state));
+  winner.wins++; loser.losses++; p.j.out.push(winner); if(side==='left')p.j.ia++;else p.j.ib++;
+  renderDuel();
+}
+function undo(){
+  if(!state.history.length)return; const snap=state.history.pop(), older=state.history;
+  state=hydrate(JSON.parse(snap)); state.history=older; show('duelView');renderDuel();
+}
+function finish(){
+  const result=resolveNode(state.root); if(!result)return;
+  state.result=result; save(); show('resultView');
+  $('#summary').textContent=`${state.history.length} duels ont suffi pour classer ${state.items.length} objets.`;
+  $('#ranking').innerHTML=result.map((x,i)=>`<div class="rank-row"><div class="rank-num">${i+1}</div>${safeUrl(x.image)?`<img class="thumb" src="${esc(safeUrl(x.image))}" alt="">`:`<div class="thumb"></div>`}<div><b>${esc(x.nom)}</b><div class="record">${esc(x.description)}</div></div><div class="record">${x.wins} V · ${x.losses} D</div></div>`).join('');
+}
+function show(id){['importView','duelView','resultView'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id))}
+function loadFile(file){
+  const reader=new FileReader(); reader.onload=()=>{
+    try{imported=parseCSV(reader.result);const n=imported.length;if(n<2)throw Error('Il faut au moins 2 objets.');
+      $('#itemCount').textContent=n;$('#estimate').textContent='≈ '+expectedComparisons(n);$('#naive').textContent=n*(n-1)/2;
+      $('#csvWarning').textContent=`Fourchette algorithmique : jusqu'à ${worstComparisons(n)} duels dans le pire cas.`;
+      $('#importInfo').classList.remove('hidden');
+    }catch(e){alert(e.message)}
+  }; reader.readAsText(file,'UTF-8');
+}
+function start(){
+  const built=makeJobs(imported.map(x=>({...x})));
+  state={items:imported.map(x=>({...x})),jobs:built.jobs,root:built.root,history:[],estimate:expectedComparisons(imported.length),maxEstimate:worstComparisons(imported.length),result:null};
+  // Rebuild once with canonical state.items.
+  const b=makeJobs(state.items);state.jobs=b.jobs;state.root=b.root;show('duelView');renderDuel();
+}
+function exportCSV(){
+  const q=v=>'"'+String(v??'').replaceAll('"','""')+'"';
+  const rows=[['rang','nom','description','lien','image','victoires','defaites'],...state.result.map((x,i)=>[i+1,x.nom,x.description,x.lien,x.image,x.wins,x.losses])];
+  const csv='\uFEFF'+rows.map(r=>r.map(q).join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='classement-duelrank.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+$('#drop').onclick=()=>$('#file').click();$('#file').onchange=e=>e.target.files[0]&&loadFile(e.target.files[0]);
+['dragenter','dragover'].forEach(ev=>$('#drop').addEventListener(ev,e=>{e.preventDefault();$('#drop').classList.add('drag')}));
+['dragleave','drop'].forEach(ev=>$('#drop').addEventListener(ev,e=>{e.preventDefault();$('#drop').classList.remove('drag')}));
+$('#drop').addEventListener('drop',e=>e.dataTransfer.files[0]&&loadFile(e.dataTransfer.files[0]));
+$('#start').onclick=start;$('#clearImport').onclick=()=>{$('#importInfo').classList.add('hidden');$('#file').value='';imported=[]};
+$('#leftCard').onclick=e=>{if(!e.target.closest('a,iframe'))choose('left')};$('#rightCard').onclick=e=>{if(!e.target.closest('a,iframe'))choose('right')};
+$('#undo').onclick=undo;$('#quit').onclick=()=>show('importView');$('#export').onclick=exportCSV;
+$('#restart').onclick=()=>{imported=state.items.map(({id,nom,description,lien,image})=>({id,nom,description,lien,image,wins:0,losses:0}));start()};
+$('#newList').onclick=()=>{localStorage.removeItem(STORAGE);state=null;imported=[];$('#importInfo').classList.add('hidden');$('#resumeBox').classList.add('hidden');show('importView')};
+$('#resume').onclick=()=>{state=hydrate(JSON.parse(localStorage.getItem(STORAGE)));if(state.result)finish();else{show('duelView');renderDuel()}};
+$('#forget').onclick=()=>{localStorage.removeItem(STORAGE);$('#resumeBox').classList.add('hidden')};
+document.addEventListener('keydown',e=>{if($('#duelView').classList.contains('hidden'))return;if(e.key==='ArrowLeft')choose('left');if(e.key==='ArrowRight')choose('right');if(e.key.toLowerCase()==='u')undo()});
+if(localStorage.getItem(STORAGE))$('#resumeBox').classList.remove('hidden');
+</script>
+</body></html>
